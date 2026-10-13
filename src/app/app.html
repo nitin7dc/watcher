@@ -1,0 +1,86 @@
+<div class="shell">
+  <aside class="rail">
+    <a routerLink="/" class="brand" aria-label="Watcher, overview">
+      <span class="tilde" aria-hidden="true">~/</span><span>watcher</span>
+    </a>
+
+    <nav aria-label="Main">
+      @for (item of nav; track item.path) {
+        <a
+          [routerLink]="item.path"
+          routerLinkActive="active"
+          [routerLinkActiveOptions]="{ exact: item.exact }"
+          ariaCurrentWhenActive="page"
+        >
+          {{ item.label }}
+          @if (item.path === '/wallets' && store.wallets().length) {
+            <span class="count">{{ store.wallets().length }}</span>
+          }
+        </a>
+      }
+    </nav>
+
+    <section class="status" aria-label="Sync status">
+      <p class="state">
+        <span class="lamp" [class.on]="!store.settings().paused && sync.online()" [class.busy]="sync.running()"></span>
+        @if (!sync.online()) {
+          offline, saved balances
+        } @else if (sync.running()) {
+          reading chains
+        } @else if (store.settings().paused) {
+          paused
+        } @else {
+          live, every {{ store.settings().refreshSec / 60 }} min
+        }
+      </p>
+      @if (store.wallets().length) {
+        <p class="muted small">Last read {{ sync.lastReadAt() | ago: clock.now() }}</p>
+      }
+      @if (store.failingSyncs().length; as n) {
+        <a routerLink="/wallets" class="badge bad">{{ n }} {{ n === 1 ? 'source' : 'sources' }} failing</a>
+      }
+      <div class="toggles">
+        <button type="button" class="btn sm" (click)="togglePause()">
+          {{ store.settings().paused ? 'Resume' : 'Pause' }}
+        </button>
+        <button type="button" class="btn sm" (click)="togglePrivacy()" [attr.aria-pressed]="store.settings().privacy">
+          {{ store.settings().privacy ? 'Show amounts' : 'Hide amounts' }}
+        </button>
+      </div>
+    </section>
+
+    <button type="button" class="kill" (click)="openKill()" aria-label="Destroy all data">everything</button>
+  </aside>
+
+  <main>
+    <router-outlet />
+  </main>
+</div>
+
+<dialog #kill class="kill-dialog" aria-labelledby="kill-title" (click)="$event.target === kill && closeKill()">
+  <div class="kill-body">
+    <h2 id="kill-title">Destroy everything Watcher stored here?</h2>
+    <p>This erases all of it from this browser, right now:</p>
+    <ul>
+      <li>{{ store.wallets().length }} tracked {{ store.wallets().length === 1 ? 'wallet' : 'wallets' }} and their labels</li>
+      <li>{{ customTokens() }} custom {{ customTokens() === 1 ? 'token' : 'tokens' }}, {{ store.customChains().length }} custom {{ store.customChains().length === 1 ? 'network' : 'networks' }} and RPC settings</li>
+      <li>Balance history, activity log and cached prices</li>
+      <li>Your settings</li>
+    </ul>
+    <p class="muted">Watcher has no server, so no other copy exists. This can't be undone. Other open Watcher tabs reload empty too.</p>
+    @if (store.wallets().length) {
+      <button type="button" class="btn sm export" (click)="exportFirst()">Export a backup first</button>
+    }
+    <app-hold-button label="Hold to destroy everything" holdingLabel="Keep holding to destroy" [ms]="2000" (confirmed)="destroy()" />
+    <button type="button" class="btn quiet cancel" (click)="closeKill()">Keep my data</button>
+  </div>
+</dialog>
+
+<div class="toasts" aria-live="polite">
+  @for (t of toasts.items(); track t.id) {
+    <div class="toast" [class]="t.tone" role="status">
+      <span class="sensitive">{{ t.text }}</span>
+      <button type="button" aria-label="Dismiss" (click)="toasts.dismiss(t.id)">×</button>
+    </div>
+  }
+</div>
